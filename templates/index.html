@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet de santé de la femme</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand-mark">♡</div>
+  <div class="brand-copy"><div class="eyebrow">CARNET PERSONNEL</div><h1>Carnet de santé de la femme</h1><span class="arabic-name">الدفتر الصحي للمرأة</span></div>
+  <div class="top-search"><span>⌕</span><input aria-label="Recherche" placeholder="Rechercher une information…" disabled></div>
+  <div class="top-user"><span class="user-avatar">♀</span><span><b>Bienvenue</b><small>Votre espace santé</small></span></div>
+</header>
+<div class="layout">
+<aside class="sidebar">
+  <div class="side-label">MON ESPACE SANTÉ</div>
+  <a class="nav-link home-link {% if active=='identite' %}active{% endif %}" href="{{ url_for('index',section='identite') }}"><span class="nav-icon">⌂</span><span>Accueil / Mon profil</span></a>
+  <div class="side-label secondary-label">MON CARNET MÉDICAL</div>
+  {% set nav_icons = {'identite':'♙','vaccination':'✚','prenuptial':'♡','planification':'▦','grossesse':'♧','accouchement':'♢','cancers':'✿','consultations':'▤','chirurgie':'✚','chroniques':'♥','menopause':'❀'} %}
+  {% for key, section in sections.items() %}
+  <a class="nav-link {% if active==key %}active{% endif %}" href="{{ url_for('index',section=key) }}">
+    <span class="nav-icon">{{ nav_icons[key] }}</span><span class="nav-text">{{ section.title }}</span><small>{{ counts[key] }}</small>
+  </a>
+  {% endfor %}
+  <div class="privacy"><span class="privacy-icon">♡</span><b>Votre santé, notre priorité</b><br>Vos informations sont personnelles et doivent rester confidentielles.</div>
+</aside>
+<main class="content">
+  {% if active == "identite" %}
+  <section class="welcome-hero">
+    <div class="hero-copy"><span class="hero-kicker">BIENVENUE DANS VOTRE ESPACE</span><h2>Votre santé mérite toute notre attention</h2><p>Un espace personnel pour suivre votre santé à chaque étape de votre vie.</p><span class="hero-heart">♡</span></div>
+    <div class="hero-art" aria-hidden="true"><span class="art-orbit"></span><span class="art-flower">✿</span><span class="art-woman">♀</span><span class="art-leaf">❧</span></div>
+  </section>
+  <div class="quick-cards">
+    <a href="{{ url_for('index',section='identite') }}" class="quick-card lilac"><span>♙</span><b>Mon profil</b><small>Vos informations personnelles</small></a>
+    <a href="{{ url_for('index',section='grossesse') }}" class="quick-card pink"><span>▦</span><b>Suivi de santé</b><small>Vos consultations et examens</small></a>
+    <a href="{{ url_for('index',section='vaccination') }}" class="quick-card blue"><span>✚</span><b>Vaccination</b><small>Votre suivi vaccinal</small></a>
+    <a href="{{ url_for('index',section='cancers') }}" class="quick-card mauve"><span>♡</span><b>Dépistages</b><small>Sein et col de l’utérus</small></a>
+  </div>
+  {% endif %}
+  <div class="page-heading">
+    <div><div class="eyebrow">CARNET NUMÉRIQUE · {{ "VOTRE PROFIL" if active=="identite" else "SUIVI MÉDICAL" }}</div><h2>{{ sections[active].title }}</h2></div>
+    <span class="page-chip">♡ Édition numérique</span>
+  </div>
+  {% with messages = get_flashed_messages() %}{% if messages %}<div class="notice">{{ messages[0] }}</div>{% endif %}{% endwith %}
+  {% if active == "identite" %}
+  <section class="paper">
+    <div class="paper-head"><div><h3>Identification de la bénéficiaire</h3><p>Informations générales et coordonnées</p></div><span class="section-number">01</span></div>
+    <form method="post" action="{{ url_for('save_profile') }}" class="form-grid">
+      <label>Nom<input name="nom" value="{{ profile.nom or '' }}"></label>
+      <label>Prénom<input name="prenom" value="{{ profile.prenom or '' }}"></label>
+      <label>Date d’ouverture du carnet<input type="date" name="date_ouverture" value="{{ profile.date_ouverture or '' }}"></label>
+      <label>Téléphone<input name="telephone" value="{{ profile.telephone or '' }}"></label>
+      <label class="wide">Adresse<textarea name="adresse" rows="2">{{ profile.adresse or '' }}</textarea></label>
+      <div class="form-actions"><button class="primary">Enregistrer la fiche</button></div>
+    </form>
+  </section>
+  {% else %}
+  <section class="paper">
+    <div class="paper-head"><div><h3>Nouvelle entrée</h3><p>Compléter les informations telles qu’elles figurent dans le dossier médical.</p></div><span class="section-number">{{ "%02d" % (sections.keys()|list).index(active)+1 }}</span></div>
+    <form method="post" action="{{ url_for('add_record',section=active) }}" class="form-grid">
+      {% for key,label,kind in sections[active].fields %}
+      <label class="{% if kind=='textarea' %}wide{% endif %}">{{ label }}
+        {% if kind=='textarea' %}<textarea name="{{ key }}" rows="3"></textarea>
+        {% elif kind.startswith('select:') %}<select name="{{ key }}"><option value="">Sélectionner…</option>{% for opt in kind[7:].split(',') %}<option>{{ opt }}</option>{% endfor %}</select>
+        {% else %}<input name="{{ key }}" type="{{ kind }}" {% if kind=='number' %}step="any"{% endif %}>{% endif %}
+      </label>
+      {% endfor %}
+      <div class="form-actions"><button class="primary">Ajouter au carnet</button></div>
+    </form>
+  </section>
+  {% endif %}
+  <section class="history">
+    <div class="history-title"><div><h3>Historique du carnet</h3><p>Les entrées enregistrées dans cette rubrique</p></div><span class="count">{{ counts[active] }} entrée(s)</span></div>
+    {% set ns = namespace(found=false) %}
+    {% for record in records %}
+      {% if record.section==active %}
+        {% set ns.found=true %}{% set data=record.payload|tojson|safe %}
+        <article class="record">
+          <div class="record-meta"><span>Entrée enregistrée</span><time>{{ record.created_at }}</time></div>
+          <div class="record-data">
+          {% for key,value in record.payload|fromjson|dictsort %}
+            {% if value %}<div><b>{{ key.replace('_',' ')|title }}</b><p>{{ value }}</p></div>{% endif %}
+          {% endfor %}
+          </div>
+          <form method="post" action="{{ url_for('delete_record',record_id=record.id) }}" onsubmit="return confirm('Supprimer cette entrée ?')"><button class="delete">Supprimer</button></form>
+        </article>
+      {% endif %}
+    {% endfor %}
+    {% if not ns.found %}<div class="empty"><span>＋</span><b>Aucune entrée pour le moment</b><p>Les informations ajoutées apparaîtront ici.</p></div>{% endif %}
+  </section>
+  <footer>Ce prototype facilite la tenue du carnet. Il ne remplace pas le dossier médical officiel ni la validation d’un professionnel de santé.</footer>
+</main>
+<aside class="benefits-panel">
+  <h3>Les avantages de ce site</h3>
+  <div class="benefit"><span class="benefit-icon blue-icon">▣</span><div><b>Accès facile</b><p>Consultez votre carnet de santé à tout moment.</p></div></div>
+  <div class="benefit"><span class="benefit-icon green-icon">▱</span><div><b>Informations centralisées</b><p>Vos consultations, vaccins, examens et antécédents au même endroit.</p></div></div>
+  <div class="benefit"><span class="benefit-icon coral-icon">♧</span><div><b>Suivi et rappels</b><p>Gardez une trace des rendez-vous et des prochains contrôles.</p></div></div>
+  <div class="benefit"><span class="benefit-icon violet-icon">♡</span><div><b>Suivi personnalisé</b><p>Un carnet organisé selon les étapes de la vie de la femme.</p></div></div>
+  <div class="benefit"><span class="benefit-icon orange-icon">✧</span><div><b>Prévention et information</b><p>Retrouvez vos données de prévention et de dépistage.</p></div></div>
+</aside>
+</div>
+</body></html>
